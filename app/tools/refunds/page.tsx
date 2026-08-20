@@ -12,9 +12,10 @@ export default function RefundsPage() {
     <>
       <h1>Refund requests</h1>
       <div className="stub-note">
-        <strong>DEMO STUB TOOL.</strong> This tool is deliberately minimal: it is a read-only list of seeded refund
-        requests with no actions. Its point is to show that a second tool inherits the same login, roles, layout and
-        audit-log scaffold for free — both roles can view it, nobody can act on it.
+        <strong>DEMO STUB TOOL.</strong> This tool is deliberately minimal but real: both roles can browse the seeded
+        refund requests, and <strong>reviewers</strong> can approve or reject a pending one with a required free-text
+        reason. Its point is to show that a second tool inherits the same login, layout, role check and audit trail as
+        KYC for free — there is no refund logic, payment provider or integration behind it.
       </div>
 
       {!user && (
@@ -30,6 +31,7 @@ export default function RefundsPage() {
             <th>Amount</th>
             <th>Status</th>
             <th>Requested</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -41,11 +43,14 @@ export default function RefundsPage() {
                 <span className={`badge ${refund.status}`}>{refund.status}</span>
               </td>
               <td className="muted">{refund.requested_at.slice(0, 10)}</td>
+              <td>
+                <Link href={`/tools/refunds/${refund.id}`}>Open</Link>
+              </td>
             </tr>
           ))}
           {refunds.length === 0 && (
             <tr>
-              <td colSpan={4} className="muted">
+              <td colSpan={5} className="muted">
                 Nothing here. Run <code>npm run seed</code> if the database is empty.
               </td>
             </tr>

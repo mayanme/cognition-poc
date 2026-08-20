@@ -14,8 +14,9 @@ npm run dev            # http://localhost:3000
 ```
 
 Start the dev server in the background and confirm readiness with
-`curl -s -o /dev/null -w "%{http_code}" localhost:3000/tools/kyc` (expect 200); the dev server is often
-not running at session start even though `npm install` is.
+`curl -s -o /dev/null -w "%{http_code}" localhost:3000/tools/kyc` and
+`curl -s -o /dev/null -w "%{http_code}" localhost:3000/tools/refunds` (expect 200 for both); the dev server
+is often not running at session start even though `npm install` is.
 
 **Devin Secrets Needed:** none. The app has no real auth, no external services, no network calls.
 
@@ -24,9 +25,10 @@ not running at session start even though `npm install` is.
 `/login` is a pick-a-user list; clicking "Sign in as this user" sets the plain `demo_user_id` cookie
 (`scaffold/auth.ts`). Seeded users are listed reviewers-first: Grace Reviewer (id 2), Radia Reviewer (4),
 Ada Viewer (1), Linus Viewer (3). "Switch user" in the top-right nav returns to `/login`.
-Role enforcement lives server-side in `requireRole()` (`scaffold/roles.ts`) and is called inside the
-`decideApplicant` Server Action, so 403s surface as an inline red message in the decision form panel —
-not as an HTTP error page. Don't expect a 500/error overlay when probing authorization.
+Role enforcement lives server-side in `requireRole()` (`scaffold/roles.ts`) and is called inside both the
+`decideApplicant` (KYC) and `decideRefund` (refunds) Server Actions, so 403s in either tool surface as the
+same inline red message in the decision form panel — not as an HTTP error page. Don't expect a 500/error
+overlay when probing authorization.
 
 ## Useful adversarial techniques
 
@@ -34,12 +36,14 @@ not as an HTTP error page. Don't expect a 500/error overlay when probing authori
   Application → Storage → Cookies → `http://localhost:3000`, double-click the `demo_user_id` value and
   set it to something bogus (e.g. `999`). Load the applicant detail page *before* editing the cookie, then
   submit the already-rendered form — otherwise the form isn't rendered at all for an unknown user and the
-  server action can't be reached from the UI.
+  server action can't be reached from the UI. The same trick works on a refund detail page
+  (`/tools/refunds/<id>`).
 - **Race / already-decided path:** open the same pending applicant in a second tab *before* deciding it,
   decide in tab 1, then submit the stale form in tab 2. Expect `Applicant <id> was already <status>.`
+  The refunds counterpart returns `Refund request <id> was already <status>.`
 - **Empty reason:** submitting Approve/Reject with an empty textarea must return
-  "A free-text reason is required for every decision." (there is no client-side `required`, so this
-  genuinely exercises the server check).
+  "A free-text reason is required for every decision." in both tools (there is no client-side `required`, so
+  this genuinely exercises the server check).
 
 ## Verifying persistence
 
@@ -51,14 +55,27 @@ console.log(db.prepare('select id,name,status,decided_by,decided_at,decision_rea
 console.log(db.prepare(\"select * from audit_log where action like 'kyc.%'\").all());"
 ```
 
-Key invariants worth asserting: refused decisions must leave `applicants.status='pending'` AND write
-**no** `audit_log` row (only `login` rows are logged for auth events); successful decisions write exactly
-one `kyc.approve`/`kyc.reject` row with the free-text reason.
+```bash
+node -e "const db=require('better-sqlite3')('db/demo.sqlite');
+console.log(db.prepare('select id,status,decided_by,decided_at,decision_reason from refund_requests').all());
+console.log(db.prepare(\"select * from audit_log where action like 'refunds.%'\").all());"
+```
+
+Key invariants worth asserting, identically in both tools: refused decisions must leave
+`applicants.status='pending'` / `refund_requests.status='pending'` AND write **no** `audit_log` row (only
+`login` rows are logged for auth events); successful decisions write exactly one
+`kyc.approve`/`kyc.reject` or `refunds.approve`/`refunds.reject` row with the free-text reason.
+
+**The key demo moment to check explicitly:** decide one KYC applicant *and* one refund request as a
+reviewer, then confirm `/audit` — and
+`select action,target_type,target_id from audit_log order by created_at desc` — shows the `kyc.*` and
+`refunds.*` rows interleaved in the one shared audit trail, both enforced by the same `requireRole`.
 
 ## Gotchas
 
 - Pages use `export const dynamic = 'force-dynamic'`, so the queue/audit reflect DB state on reload; the
   pending count on `/tools/kyc` drops as you decide applicants (12 → 10 after one approve + one reject on
-  a freshly seeded DB) — a cheap end-to-end signal.
+  a freshly seeded DB) — a cheap end-to-end signal. `/tools/refunds` behaves the same way: the decided row's
+  badge flips from `pending` to `approved`/`rejected` on reload.
 - Displayed user names include the role suffix, e.g. `Grace Reviewer (reviewer)`, in the audit/detail
   views while the nav strips it.
