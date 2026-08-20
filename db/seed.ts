@@ -28,7 +28,7 @@ const APPLICANTS: Array<{ name: string; risk_score: number; status: 'pending' | 
   { name: 'Fatima Nasser', risk_score: 29, status: 'rejected', days_ago: 10 },
 ];
 
-const REFUNDS: Array<{ customer_name: string; amount: number; status: string; days_ago: number }> = [
+const REFUNDS: Array<{ customer_name: string; amount: number; status: 'pending' | 'approved' | 'rejected'; days_ago: number }> = [
   { customer_name: 'Nadia Okafor', amount: 42.5, status: 'pending', days_ago: 1 },
   { customer_name: 'Tomas Beltran', amount: 128.0, status: 'pending', days_ago: 1 },
   { customer_name: 'Priya Raman', amount: 19.99, status: 'approved', days_ago: 2 },
@@ -74,10 +74,20 @@ function seed(): void {
   }
 
   const insertRefund = db.prepare(
-    'INSERT INTO refund_requests (customer_name, amount, status, requested_at) VALUES (?, ?, ?, ?)',
+    `INSERT INTO refund_requests (customer_name, amount, status, requested_at, decided_by, decided_at, decision_reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const refund of REFUNDS) {
-    insertRefund.run(refund.customer_name, refund.amount, refund.status, daysAgoIso(refund.days_ago));
+    const decided = refund.status !== 'pending';
+    insertRefund.run(
+      refund.customer_name,
+      refund.amount,
+      refund.status,
+      daysAgoIso(refund.days_ago),
+      decided ? reviewerId : null,
+      decided ? daysAgoIso(refund.days_ago - 1) : null,
+      decided ? 'Seeded historical decision (demo data).' : null,
+    );
   }
 
   console.log(`Seeded ${USERS.length} users, ${APPLICANTS.length} applicants, ${REFUNDS.length} refund requests.`);

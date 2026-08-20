@@ -33,5 +33,8 @@ CREATE TABLE IF NOT EXISTS refund_requests (
   customer_name TEXT NOT NULL,
   amount REAL NOT NULL,
   status TEXT NOT NULL,
-  requested_at TEXT NOT NULL
+  requested_at TEXT NOT NULL,
+  decided_by INTEGER REFERENCES users(id),
+  decided_at TEXT,
+  decision_reason TEXT
 );

@@ -27,7 +27,12 @@ export type RefundRequest = {
   amount: number;
   status: string;
   requested_at: string;
+  decided_by: number | null;
+  decided_at: string | null;
+  decision_reason: string | null;
 };
+
+export type RefundRequestWithDecider = RefundRequest & { decided_by_name: string | null };
 
 export type AuditEntry = {
   id: number;
