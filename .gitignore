@@ -1,0 +1,9 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local demo database (created by `npm run seed`)
+db/*.sqlite
+db/*.sqlite-shm
+db/*.sqlite-wal
